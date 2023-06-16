@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>LLM Coder</title>
+    <style>
+        .activeRow {
+            background-color: lightskyblue
+        }
+    </style>
+
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
+        integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"
+        integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo"
+        crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js"
+        integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1"
+        crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"
+        integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM"
+        crossorigin="anonymous"></script>
+    
+        <link href="https://cdn.datatables.net/v/bs5/jq-3.6.0/dt-1.13.4/sc-2.1.1/sl-1.6.2/datatables.min.css" rel="stylesheet"/>
+        <script src="https://cdn.datatables.net/v/bs5/jq-3.6.0/dt-1.13.4/sc-2.1.1/sl-1.6.2/datatables.min.js"></script>
+
+</head>
+
+<body>
+    <div class="container" id="container">
+        <div class="row p-5">
+            <div class="col-4 text-left">
+                <form id="myForm">
+                    <h1 class="h3 mb-3 fw-normal">LLM Coder</h1>
+
+                    <div class="mb-3">
+                        <label for="repo" class="form-label">Repository Link</label>
+                        <input type="text" class="form-control" id="repo" name="repo">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="branch_name" class="form-label">Branch Name</label>
+                        <input type="text" class="form-control" id="branch_name" name="branch_name"
+                            placeholder="master">
+                    </div>
+
+                    <button type="submit" value="submit" class="w-100 btn btn-lg btn-primary mb-2">Submit</button>
+                </form>
+
+                <button type="button" value="testcase" class="w-100 btn btn-lg btn-outline-primary mb-2" id="testcase"
+                    name="testcase">Create Test Cases</button>
+            </div>
+            <div class="col-8">
+                <p id="error-message"></p>
+                <table id="repo_table" class="table table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Path</th>
+                        </tr>
+                    </thead>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- loading the table -->
+    <script type="text/javascript">
+        // var responseData = '{{ res | default("[]") | tojson | safe }}';
+        // var data = JSON.parse(responseData);
+        $(document).ready(function() {
+            var tableInstance;
+            function loadTableData(data) {
+                // Destroy the previous DataTable instance if it exists
+                if (tableInstance) {
+                    tableInstance.destroy();
+                }
+
+                // Create the DataTable instance and store it in the variable
+                tableInstance = $('#repo_table').DataTable({
+                    data: data,
+                    columns: [
+                        { data: 'path', className: 'text-left' }
+                    ]
+                });
+                tableInstance.select.style('os');
+                var headerHtml = '<tr><th>Path</th></tr>';
+                $('#repo_table thead').html(headerHtml);
+            }
+
+            function showError(error) {
+                $('#error-message').text(error);
+            }
+
+            function resetForm() {
+                $('#myForm').trigger('reset');
+                $('#error-message').text('');
+            }
+
+            // Form submission
+            $('#myForm').submit(function(event) {
+            event.preventDefault(); // Prevent form submission
+
+            var formData = $(this).serialize(); // Serialize form data
+
+                $.ajax({
+                    url: '/',
+                    type: 'POST',
+                    data: formData,
+                    dataType: 'json',
+                    success: function(response) {
+                        console.log(response);
+                        // Check if the response contains an error
+                        if (response.error) {
+                            // Update the <p> tag with the error message
+                            $('#error-message').text(response.error);
+                            // Clear the table data
+                            $('#repo_table').DataTable().clear().draw();
+                        } else {
+                            // Reset the form fields if no error
+                            $('#myForm').trigger('reset');
+                            // Clear the error message if any
+                            $('#error-message').text('');
+
+                            // Update the table data
+                            var data = JSON.parse(response.result);
+                            loadTableData(data);
+                           
+                        }
+                    },
+                    error: function(error) {
+                        console.log(error);
+                        // Update the <p> tag with the error message
+                        $('#error-message').text('An error occurred. Please try again.');
+                        // Clear the table data
+                        $('#repo_table').DataTable().clear().draw();
+                    }});
+            });
+
+            // Create Test Cases button click
+            $('#testcase').on('click', function() {
+                var selectedData = $('#repo_table').DataTable().rows({ selected: true }).data().toArray();
+                console.log(selectedData);
+
+                $.ajax({
+                    type: 'POST',
+                    url: '/testcase',
+                    data: JSON.stringify(selectedData),
+                    dataType: 'json',
+                    contentType: 'application/json',
+                    success: function(response) {
+                        console.log(response)
+                        window.location.href = "/testcase";
+                    },
+                    error: function(error) {
+                        console.log(error);
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>
